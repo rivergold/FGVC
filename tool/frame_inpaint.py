@@ -25,14 +25,18 @@ class DeepFillv1(object):
 
     def forward(self, img, mask):
 
-        img, mask, small_mask = self.data_preprocess(img, mask, size=self.image_shape)
+        img, mask, small_mask = self.data_preprocess(img,
+                                                     mask,
+                                                     size=self.image_shape)
 
         image = torch.stack([img])
         mask = torch.stack([mask])
         small_mask = torch.stack([small_mask])
 
         with torch.no_grad():
-            _, inpaint_res, _ = self.deepfill(image.to(self.device), mask.to(self.device), small_mask.to(self.device))
+            _, inpaint_res, _ = self.deepfill(image.to(self.device),
+                                              mask.to(self.device),
+                                              small_mask.to(self.device))
 
         res_complete = self.data_proprocess(image, mask, inpaint_res)
 
@@ -47,8 +51,10 @@ class DeepFillv1(object):
             mask = cv2.dilate(mask, kernel, iterations=1)
             mask = (mask > 0).astype(np.uint8)
 
-        small_mask = cv2.resize(mask, (size[1] // 8, size[0] // 8), interpolation=cv2.INTER_NEAREST)
-        mask = cv2.resize(mask, (size[1], size[0]), interpolation=cv2.INTER_NEAREST)
+        small_mask = cv2.resize(mask, (size[1] // 8, size[0] // 8),
+                                interpolation=cv2.INTER_NEAREST)
+        mask = cv2.resize(mask, (size[1], size[0]),
+                          interpolation=cv2.INTER_NEAREST)
 
         if len(mask.shape) == 3:
             mask = mask[:, :, 0:1]
@@ -62,9 +68,10 @@ class DeepFillv1(object):
 
         img = torch.from_numpy(img).permute(2, 0, 1).contiguous().float()
         mask = torch.from_numpy(mask).permute(2, 0, 1).contiguous().float()
-        small_mask = torch.from_numpy(small_mask).permute(2, 0, 1).contiguous().float()
+        small_mask = torch.from_numpy(small_mask).permute(
+            2, 0, 1).contiguous().float()
 
-        return img*(1-mask), mask, small_mask
+        return img * (1 - mask), mask, small_mask
 
     def data_proprocess(self, img, mask, res):
         img = img.cpu().data.numpy()[0]
@@ -83,17 +90,24 @@ class DeepFillv1(object):
 
 def parse_arges():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--image_shape', type=int, nargs='+',
+    parser.add_argument('--image_shape',
+                        type=int,
+                        nargs='+',
                         default=[512, 960])
-    parser.add_argument('--res_shape', type=int, nargs='+',
-                        default=None)
-    parser.add_argument('--pretrained_model', type=str,
+    parser.add_argument('--res_shape', type=int, nargs='+', default=None)
+    parser.add_argument('--pretrained_model',
+                        type=str,
                         default='/home/chengao/Weight/imagenet_deepfill.pth')
-    parser.add_argument('--test_img', type=str,
-                        default='/work/cascades/chengao/DAVIS-540/bear_540p/00000.png')
-    parser.add_argument('--test_mask', type=str,
-                        default='/work/cascades/chengao/DAVIS-540-baseline/mask_540p.png')
-    parser.add_argument('--output_path', type=str,
+    parser.add_argument(
+        '--test_img',
+        type=str,
+        default='/work/cascades/chengao/DAVIS-540/bear_540p/00000.png')
+    parser.add_argument(
+        '--test_mask',
+        type=str,
+        default='/work/cascades/chengao/DAVIS-540-baseline/mask_540p.png')
+    parser.add_argument('--output_path',
+                        type=str,
                         default='/home/chengao/res_00000.png')
 
     args = parser.parse_args()
