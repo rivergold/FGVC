@@ -185,10 +185,10 @@ def extrapolation(args, video_ori, corrFlowF_ori, corrFlowB_ori):
                          dtype=np.float32)
     corrFlowB = np.zeros(((imgH_extr, imgW_extr, 2, nFrame - 1)),
                          dtype=np.float32)
-    corrFlowF[H_start:H_start + imgH, W_start:W_start +
-              imgW, :] = corrFlowF_ori
-    corrFlowB[H_start:H_start + imgH, W_start:W_start +
-              imgW, :] = corrFlowB_ori
+    corrFlowF[H_start:H_start + imgH,
+              W_start:W_start + imgW, :] = corrFlowF_ori
+    corrFlowB[H_start:H_start + imgH,
+              W_start:W_start + imgW, :] = corrFlowB_ori
 
     return video, corrFlowF, corrFlowB, flow_mask, mask_dilated, (
         W_start, H_start), (W_start + imgW, H_start + imgH)
@@ -239,7 +239,8 @@ def complete_flow(args, corrFlow, flow_mask, mode, edge=None):
                 axis=0)
 
             # concatenate gradient_x and gradient_y
-            gradient = np.concatenate((gradient_x, gradient_y), axis=2)
+            gradient = np.concatenate((gradient_x, gradient_y),
+                                      axis=2)  # shape [H, W, 4], u和v在x，y方向上的梯度
 
             # We can trust the gradient outside of flow_mask_gradient_img
             # We assume the gradient within flow_mask_gradient_img is 0.
@@ -288,7 +289,7 @@ def edge_completion(args, EdgeGenerator, corrFlow, flow_mask, mode):
         flow_mask_img = flow_mask[:, :,
                                   i] if mode == 'forward' else flow_mask[:, :,
                                                                          i + 1]
-
+        # @rivergold: gray image的计算公式，实际就是计算u, v组合后的向量；并做了归一化
         flow_img_gray = (corrFlow[:, :, 0, i]**2 +
                          corrFlow[:, :, 1, i]**2)**0.5
         flow_img_gray = flow_img_gray / flow_img_gray.max()
@@ -325,16 +326,22 @@ def video_completion(args):
             torch.from_numpy(np.array(Image.open(filename)).astype(
                 np.uint8)).permute(2, 0, 1).float())
 
-    video = torch.stack(video, dim=0)
+    video = torch.stack(video, dim=0)  # shape [T, C, H, W]
     video = video.to('cuda')
 
     # Calcutes the corrupted flow.
-    corrFlowF = calculate_flow(args, RAFT_model, video, 'forward')
-    corrFlowB = calculate_flow(args, RAFT_model, video, 'backward')
+    # @rivergold: corrFlow shape: [H, W, 2, T]
+    corrFlowF = calculate_flow(
+        args, RAFT_model, video,
+        'forward')  # @rivergold: flow t -> t+1, t和t+1帧之间的光流
+    corrFlowB = calculate_flow(
+        args, RAFT_model, video,
+        'backward')  # @rivergold: flow t+1 -> t, t+1和t之间的光流
     print('\nFinish Calculating flow.')
 
     # Makes sure video is in BGR (opencv) format.
-    video = video.permute(2, 3, 1, 0).cpu().numpy()[:, :, ::-1, :] / 255.
+    video = video.permute(
+        2, 3, 1, 0).cpu().numpy()[:, :, ::-1, :] / 255.  # shape [H, W, C, T]
 
     if args.mode == 'video_extrapolation':
 
@@ -372,7 +379,7 @@ def video_completion(args):
 
         # mask indicating the missing region in the video.
         mask = np.stack(mask, -1).astype(np.bool)
-        flow_mask = np.stack(flow_mask, -1).astype(np.bool)
+        flow_mask = np.stack(flow_mask, -1).astype(np.bool)  # shape [H, W, T]
 
     if args.edge_guide:
 
@@ -389,7 +396,7 @@ def video_completion(args):
 
         # Edge completion.
         FlowF_edge = edge_completion(args, EdgeGenerator, corrFlowF, flow_mask,
-                                     'forward')
+                                     'forward')  # shape [H, W, 1, T]
         FlowB_edge = edge_completion(args, EdgeGenerator, corrFlowB, flow_mask,
                                      'backward')
     else:
@@ -424,8 +431,10 @@ def video_completion(args):
                                                 None)
 
         for i in range(nFrame):
-            mask_tofill[:, :, i] = scipy.ndimage.binary_dilation(
-                mask_tofill[:, :, i], iterations=2)
+            mask_tofill[:, :,
+                        i] = scipy.ndimage.binary_dilation(mask_tofill[:, :,
+                                                                       i],
+                                                           iterations=2)
             img = video_comp[:, :, :, i] * 255
             img[mask_tofill[:, :, i]] = [0, 255, 0]
             cv2.imwrite(

@@ -17,6 +17,10 @@ def sub2ind(pi, pj, imgH, imgW):
 
 
 def Poisson_blend(imgTrg, imgSrc_gx, imgSrc_gy, holeMask, edge=None):
+    # @rivergold:
+    # imgTrg: flow
+    # imgSrc_gx: flow's gradient x
+    # imgSrc_gy: flow's gradient y
 
     imgH, imgW, nCh = imgTrg.shape
 
@@ -41,27 +45,32 @@ def Poisson_blend(imgTrg, imgSrc_gx, imgSrc_gy, holeMask, edge=None):
     imgBlend = holeMaskC * imgRecon + (1 - holeMaskC) * imgTrg
 
     # Fill in edge pixel
-    pi = np.expand_dims(np.where((holeMask * edge) == 1)[0], axis=1) # y, i
-    pj = np.expand_dims(np.where((holeMask * edge) == 1)[1], axis=1) # x, j
+    pi = np.expand_dims(np.where((holeMask * edge) == 1)[0], axis=1)  # y, i
+    pj = np.expand_dims(np.where((holeMask * edge) == 1)[1], axis=1)  # x, j
 
     for k in range(len(pi)):
         if pi[k, 0] - 1 >= 0:
             if edge[pi[k, 0] - 1, pj[k, 0]] == 0:
-                imgBlend[pi[k, 0], pj[k, 0], :] = imgBlend[pi[k, 0] - 1, pj[k, 0], :]
+                imgBlend[pi[k, 0], pj[k, 0], :] = imgBlend[pi[k, 0] - 1,
+                                                           pj[k, 0], :]
                 continue
         if pi[k, 0] + 1 <= imgH - 1:
             if edge[pi[k, 0] + 1, pj[k, 0]] == 0:
-                imgBlend[pi[k, 0], pj[k, 0], :] = imgBlend[pi[k, 0] + 1, pj[k, 0], :]
+                imgBlend[pi[k, 0], pj[k, 0], :] = imgBlend[pi[k, 0] + 1,
+                                                           pj[k, 0], :]
                 continue
         if pj[k, 0] - 1 >= 0:
             if edge[pi[k, 0], pj[k, 0] - 1] == 0:
-                imgBlend[pi[k, 0], pj[k, 0], :] = imgBlend[pi[k, 0], pj[k, 0] - 1, :]
+                imgBlend[pi[k, 0], pj[k, 0], :] = imgBlend[pi[k, 0],
+                                                           pj[k, 0] - 1, :]
                 continue
         if pj[k, 0] + 1 <= imgW - 1:
             if edge[pi[k, 0], pj[k, 0] + 1] == 0:
-                imgBlend[pi[k, 0], pj[k, 0], :] = imgBlend[pi[k, 0], pj[k, 0] + 1, :]
+                imgBlend[pi[k, 0], pj[k, 0], :] = imgBlend[pi[k, 0],
+                                                           pj[k, 0] + 1, :]
 
     return imgBlend
+
 
 def solvePoisson(holeMask, imgSrc_gx, imgSrc_gy, imgTrg, edge):
 
@@ -73,8 +82,8 @@ def solvePoisson(holeMask, imgSrc_gx, imgSrc_gy, imgTrg, edge):
     numUnknownPix = holeMask.sum()
 
     # 4-neighbors: dx and dy
-    dx = [1, 0, -1,  0]
-    dy = [0, 1,  0, -1]
+    dx = [1, 0, -1, 0]
+    dy = [0, 1, 0, -1]
 
     #      3
     #      |
@@ -92,8 +101,8 @@ def solvePoisson(holeMask, imgSrc_gx, imgSrc_gy, imgTrg, edge):
     b = np.empty((0, 2), dtype=np.float32)
 
     # Precompute unkonwn pixel position
-    pi = np.expand_dims(np.where(holeMask == 1)[0], axis=1) # y, i
-    pj = np.expand_dims(np.where(holeMask == 1)[1], axis=1) # x, j
+    pi = np.expand_dims(np.where(holeMask == 1)[0], axis=1)  # y, i
+    pj = np.expand_dims(np.where(holeMask == 1)[1], axis=1)  # x, j
     pind = sub2ind(pi, pj, imgH, imgW)
 
     # |--------------------|
@@ -102,15 +111,11 @@ def solvePoisson(holeMask, imgSrc_gx, imgSrc_gy, imgTrg, edge):
     # |                    |
     # |--------------------|
 
-    qi = np.concatenate((pi + dy[0],
-                         pi + dy[1],
-                         pi + dy[2],
-                         pi + dy[3]), axis=1)
+    qi = np.concatenate((pi + dy[0], pi + dy[1], pi + dy[2], pi + dy[3]),
+                        axis=1)
 
-    qj = np.concatenate((pj + dx[0],
-                         pj + dx[1],
-                         pj + dx[2],
-                         pj + dx[3]), axis=1)
+    qj = np.concatenate((pj + dx[0], pj + dx[1], pj + dx[2], pj + dx[3]),
+                        axis=1)
 
     # Handling cases at image borders
     validN = (qi >= 0) & (qi <= imgH - 1) & (qj >= 0) & (qj <= imgW - 1)
@@ -118,13 +123,29 @@ def solvePoisson(holeMask, imgSrc_gx, imgSrc_gy, imgTrg, edge):
     qind[validN] = sub2ind(qi[validN], qj[validN], imgH, imgW)
 
     e_start = 0  # equation counter start
-    e_stop  = 0  # equation stop
+    e_stop = 0  # equation stop
 
     # 4 neighbors
-    I, J, S, b, e_start, e_stop = constructEquation(0, validN, holeMask, edge, imgSrc_gx, imgSrc_gy, imgTrg, pi, pj, pind, qi, qj, qind, I, J, S, b, e_start, e_stop)
-    I, J, S, b, e_start, e_stop = constructEquation(1, validN, holeMask, edge, imgSrc_gx, imgSrc_gy, imgTrg, pi, pj, pind, qi, qj, qind, I, J, S, b, e_start, e_stop)
-    I, J, S, b, e_start, e_stop = constructEquation(2, validN, holeMask, edge, imgSrc_gx, imgSrc_gy, imgTrg, pi, pj, pind, qi, qj, qind, I, J, S, b, e_start, e_stop)
-    I, J, S, b, e_start, e_stop = constructEquation(3, validN, holeMask, edge, imgSrc_gx, imgSrc_gy, imgTrg, pi, pj, pind, qi, qj, qind, I, J, S, b, e_start, e_stop)
+    I, J, S, b, e_start, e_stop = constructEquation(0, validN, holeMask, edge,
+                                                    imgSrc_gx, imgSrc_gy,
+                                                    imgTrg, pi, pj, pind, qi,
+                                                    qj, qind, I, J, S, b,
+                                                    e_start, e_stop)
+    I, J, S, b, e_start, e_stop = constructEquation(1, validN, holeMask, edge,
+                                                    imgSrc_gx, imgSrc_gy,
+                                                    imgTrg, pi, pj, pind, qi,
+                                                    qj, qind, I, J, S, b,
+                                                    e_start, e_stop)
+    I, J, S, b, e_start, e_stop = constructEquation(2, validN, holeMask, edge,
+                                                    imgSrc_gx, imgSrc_gy,
+                                                    imgTrg, pi, pj, pind, qi,
+                                                    qj, qind, I, J, S, b,
+                                                    e_start, e_stop)
+    I, J, S, b, e_start, e_stop = constructEquation(3, validN, holeMask, edge,
+                                                    imgSrc_gx, imgSrc_gy,
+                                                    imgTrg, pi, pj, pind, qi,
+                                                    qj, qind, I, J, S, b,
+                                                    e_start, e_stop)
 
     nEqn = len(b)
     # Construct the sparse matrix A
@@ -133,7 +154,8 @@ def solvePoisson(holeMask, imgSrc_gx, imgSrc_gy, imgTrg, edge):
     return A, b
 
 
-def constructEquation(n, validN, holeMask, edge, imgSrc_gx, imgSrc_gy, imgTrg, pi, pj, pind, qi, qj, qind, I, J, S, b, e_start, e_stop):
+def constructEquation(n, validN, holeMask, edge, imgSrc_gx, imgSrc_gy, imgTrg,
+                      pi, pj, pind, qi, qj, qind, I, J, S, b, e_start, e_stop):
 
     # Pixel that has valid neighbors
     validNeighbor = validN[:, n]
@@ -147,7 +169,8 @@ def constructEquation(n, validN, holeMask, edge, imgSrc_gx, imgSrc_gy, imgTrg, p
     qj_tmp[np.invert(validNeighbor), n] = 0
 
     # Not edge
-    NotEdge = (edge[pi[:, 0], pj[:, 0]] == 0) * (edge[qi_tmp[:, n], qj_tmp[:, n]] == 0)
+    NotEdge = (edge[pi[:, 0], pj[:, 0]] == 0) * (edge[qi_tmp[:, n],
+                                                      qj_tmp[:, n]] == 0)
 
     # Boundary constraint
     Boundary = holeMask[qi_tmp[:, n], qj_tmp[:, n]] == 0
@@ -164,19 +187,23 @@ def constructEquation(n, validN, holeMask, edge, imgSrc_gx, imgSrc_gy, imgTrg, p
     S_tmp = np.ones(J_tmp.shape, dtype=np.float32)
 
     if n == 0:
-        b_tmp = - imgSrc_gx[pi[valid, 0], pj[valid, 0], :] + imgTrg[qi[valid, n], qj[valid, n], :]
+        b_tmp = -imgSrc_gx[pi[valid, 0], pj[valid, 0], :] + imgTrg[qi[
+            valid, n], qj[valid, n], :]
     elif n == 2:
-        b_tmp = imgSrc_gx[pi[valid, 0], pj[valid, 0] - 1, :] + imgTrg[qi[valid, n], qj[valid, n], :]
+        b_tmp = imgSrc_gx[pi[valid, 0], pj[valid, 0] -
+                          1, :] + imgTrg[qi[valid, n], qj[valid, n], :]
     elif n == 1:
-        b_tmp = - imgSrc_gy[pi[valid, 0], pj[valid, 0], :] + imgTrg[qi[valid, n], qj[valid, n], :]
+        b_tmp = -imgSrc_gy[pi[valid, 0], pj[valid, 0], :] + imgTrg[qi[
+            valid, n], qj[valid, n], :]
     elif n == 3:
-        b_tmp = imgSrc_gy[pi[valid, 0] - 1, pj[valid, 0], :] + imgTrg[qi[valid, n], qj[valid, n], :]
+        b_tmp = imgSrc_gy[pi[valid, 0] - 1,
+                          pj[valid, 0], :] + imgTrg[qi[valid, n], qj[valid,
+                                                                     n], :]
 
     I = np.concatenate((I, I_tmp))
     J = np.concatenate((J, J_tmp))
     S = np.concatenate((S, S_tmp))
     b = np.concatenate((b, b_tmp))
-
 
     # Non-boundary constraint
     NonBoundary = holeMask[qi_tmp[:, n], qj_tmp[:, n]] == 1
@@ -192,11 +219,11 @@ def constructEquation(n, validN, holeMask, edge, imgSrc_gx, imgSrc_gy, imgTrg, p
     S_tmp = np.ones(J_tmp.shape, dtype=np.float32)
 
     if n == 0:
-        b_tmp = - imgSrc_gx[pi[valid, 0], pj[valid, 0], :]
+        b_tmp = -imgSrc_gx[pi[valid, 0], pj[valid, 0], :]
     elif n == 2:
         b_tmp = imgSrc_gx[pi[valid, 0], pj[valid, 0] - 1, :]
     elif n == 1:
-        b_tmp = - imgSrc_gy[pi[valid, 0], pj[valid, 0], :]
+        b_tmp = -imgSrc_gy[pi[valid, 0], pj[valid, 0], :]
     elif n == 3:
         b_tmp = imgSrc_gy[pi[valid, 0] - 1, pj[valid, 0], :]
 
@@ -205,7 +232,7 @@ def constructEquation(n, validN, holeMask, edge, imgSrc_gx, imgSrc_gy, imgTrg, p
     S = np.concatenate((S, S_tmp))
     b = np.concatenate((b, b_tmp))
 
-    S_tmp = - np.ones(J_tmp.shape, dtype=np.float32)
+    S_tmp = -np.ones(J_tmp.shape, dtype=np.float32)
     J_tmp = qind[valid, n, None]
 
     I = np.concatenate((I, I_tmp))
