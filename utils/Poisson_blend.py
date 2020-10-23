@@ -47,7 +47,8 @@ def Poisson_blend(imgTrg, imgSrc_gx, imgSrc_gy, holeMask, edge=None):
     # Fill in edge pixel
     pi = np.expand_dims(np.where((holeMask * edge) == 1)[0], axis=1)  # y, i
     pj = np.expand_dims(np.where((holeMask * edge) == 1)[1], axis=1)  # x, j
-
+    # @rivergold: 补全edge处的光流
+    # 依次遍历当前edge像素的上、下、左、右4近邻的像素，如果该邻近像素不在edge上，则用这个点的光流值补全当前edge点
     for k in range(len(pi)):
         if pi[k, 0] - 1 >= 0:
             if edge[pi[k, 0] - 1, pj[k, 0]] == 0:

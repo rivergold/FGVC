@@ -396,7 +396,7 @@ def video_completion(args):
 
         # Edge completion.
         FlowF_edge = edge_completion(args, EdgeGenerator, corrFlowF, flow_mask,
-                                     'forward')  # shape [H, W, 1, T]
+                                     'forward')  # shape [H, W, 2, T]
         FlowB_edge = edge_completion(args, EdgeGenerator, corrFlowB, flow_mask,
                                      'backward')
     else:
